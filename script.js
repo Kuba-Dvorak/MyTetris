@@ -4,6 +4,22 @@ const mySlider = document.querySelector('#MySlider')
 let blocksDown = []
 let fallingBlocks = []
 
+
+
+let addConfig_blocks = document.getElementById("AddConfig")
+let numbeeArray = []
+let numbee = 0
+let numbee2 = 0
+
+addConfig_blocks.addEventListener("click", () => {
+    document.getElementById('boxy').innerHTML += `<div id="name${numbee++}"><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><br>
+                                                    <span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><input type='radio'><br>
+                                                    <span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span></div><br>`
+    numbeeArray.push(document.getElementById(`name${numbee}`))
+});
+
+
+
 function absoluteDistance(target_A,target_B){
     let myA = target_A
     let myB = target_B
@@ -32,7 +48,7 @@ function leaveNotCurrentID(ourblockslist,id){
     return ournewList
 }
 
-function CurrentBlocksLenght(ourblockslist){
+function currentBlocksLenght(ourblockslist){
     let ourNum = 0
     for (let elBlock of ourblockslist){
         if (elBlock.current){
@@ -63,9 +79,28 @@ class Block{
     colisions() {
        for (let blocker of blocksDown){
         if (!blocker.stopped){
-            if (absoluteDistance(blocker.centre,this.centre)<(this.innerRad+blocker.innerRad)) {
+            let locAbsDis = absoluteDistance(blocker.centre,this.centre)
+            if (locAbsDis<(this.outerRad+blocker.outerRad)) {
                 //console.log(`Blok ID: ${this.id} kolize s ${blocker.id}`)
-                return [true, blocker.y]
+                if (locAbsDis<(this.innerRad+blocker.innerRad)){
+                    return [true, blocker.y]
+                }
+                if (blocker.x<this.x && this.x<blocker.x+blocker.size_x){
+                    if (blocker.y<this.y && this.y<blocker.y+blocker.size_y){
+                        return [true, blocker.y]
+                    }
+                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                        return [true, blocker.y]
+                    }
+                }
+                if (blocker.x<this.x+this.size_x && this.x+this.size_x<blocker.x+blocker.size_x){
+                    if (blocker.y<=this.y && this.y<=blocker.y+blocker.size_y){
+                        return [true, blocker.y]
+                    }
+                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                        return [true, blocker.y]
+                    }
+                }
             }}
         }
        if (this.y+this.size_y >= myCanvas.height){
@@ -75,12 +110,32 @@ class Block{
        return [false, -10]
     }
     collision_expept(change_x){
-        let local_centre = this.centre
+        let local_centre = [this.x+this.size_x/2,this.y+this.size_y/2]
         local_centre[0] += change_x
+        let local_x = this.x + change_x
         for (let blocker of blocksDown){
         if (!blocker.stopped){
-            if (absoluteDistance(blocker.centre,local_centre)<(this.innerRad+blocker.innerRad)) {
-                return true
+            let locAbsDis = absoluteDistance(blocker.centre,local_centre)
+            if (locAbsDis<(this.outerRad+blocker.outerRad)) {
+                if (locAbsDis<(this.innerRad+blocker.innerRad)){
+                    return true
+                }
+                if (blocker.x<local_x && local_x<blocker.x+blocker.size_x){
+                    if (blocker.y<this.y && this.y<blocker.y+blocker.size_y){
+                        return true
+                    }
+                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                        return true
+                    }
+                }
+                if (blocker.x<local_x+this.size_x && local_x+this.size_x<blocker.x+blocker.size_x){
+                    if (blocker.y<=this.y && this.y<=blocker.y+blocker.size_y){
+                        return true
+                    }
+                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                        return true
+                    }
+                }
             }}
         }
        if (this.y+this.size_y >= myCanvas.height){
@@ -156,7 +211,7 @@ class Block{
                 fallingBlocks.push(new Block(true,myCanvas.width/2+100,0,ids++))
                 //fallingBlocks.push(new Block(true,myCanvas.width/2-100,0,ids++))
                 //fallingBlocks.push(new Block(true,myCanvas.width/2+200,0,ids++))
-                startnewGen = CurrentBlocksLenght(fallingBlocks)
+                startnewGen = currentBlocksLenght(fallingBlocks)
             
         }
         }
@@ -166,7 +221,7 @@ class Block{
 let ids = 0
 let stopping = false
 fallingBlocks.push(new Block(true,myCanvas.width/2,0,ids++))
-let startnewGen = CurrentBlocksLenght(fallingBlocks)
+let startnewGen = currentBlocksLenght(fallingBlocks)
 
 
 function main() {
@@ -189,11 +244,6 @@ function main() {
                     blocksDown = eliminateLostBlocks(blocksDown)
                     fallingBlocks = fallingBlocks.concat(blocksDown)
                     blocksDown = []
-                    for (let blackers of blocksDown){
-                        if (!blackers.stopped){
-                            blackers.updateblock(100)
-                        }
-                    }
                 }
             }
             }
@@ -206,16 +256,15 @@ window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') {
         let fallNum = 0
         for (let fallers of fallingBlocks){
-            if (fallers.x<=myCanvas.width-fallers.size_x*2 && !fallers.collision_expept(100) && fallers.current){
+            if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x)) && fallers.current){
                 fallNum += 1
             }
         }
-        console.log(CurrentBlocksLenght(fallingBlocks))
-        console.log(fallNum)
-        if (fallNum>=CurrentBlocksLenght(fallingBlocks)){
+        if (fallNum>=currentBlocksLenght(fallingBlocks)){
             for (let fallers of fallingBlocks){
-                if (fallers.x<=myCanvas.width-fallers.size_x*2 && !fallers.collision_expept(100) && fallers.current){
-                    fallers.x += 100
+                if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x)) && fallers.current){
+                    fallers.x += fallers.size_x
+                    fallers.centre[0] += fallers.size_x
                 }
             }
             fallNum = 0
@@ -224,16 +273,15 @@ window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
         let fallNum = 0
         for (let fallers of fallingBlocks){
-            if (fallers.x>=fallers.size_x && !fallers.collision_expept(-100) && fallers.current){
+            if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x)) && fallers.current){
                 fallNum += 1
             }
         }
-        console.log(CurrentBlocksLenght(fallingBlocks))
-        console.log(fallNum)
-        if (fallNum>=CurrentBlocksLenght(fallingBlocks)){
+        if (fallNum>=currentBlocksLenght(fallingBlocks)){
             for (let fallers of fallingBlocks){
-                if (fallers.x>=fallers.size_x && !fallers.collision_expept(100) && fallers.current){
-                    fallers.x -= 100
+                if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x)) && fallers.current){
+                    fallers.x -= fallers.size_x
+                    fallers.centre[0] -= fallers.size_x
                 }
             }
             fallNum = 0

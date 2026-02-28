@@ -1,23 +1,99 @@
 const myCanvas = document.querySelector('#MyCanvas')
 const drawer = myCanvas.getContext('2d')
 const mySlider = document.querySelector('#MySlider')
+const startBut =  document.querySelector('#MyStartButton')
 let blocksDown = []
 let fallingBlocks = []
 
 
 
 let addConfig_blocks = document.getElementById("AddConfig")
-let numbeeArray = []
 let numbee = 0
 let numbee2 = 0
+const defaultBlocksList = []
+const blockFormula = [3,3]
+const rotation_angle = 90
+let defaultOrMadeBlocks = true
+const sizeOfBlocks = 100
 
-addConfig_blocks.addEventListener("click", () => {
-    document.getElementById('boxy').innerHTML += `<div id="name${numbee++}"><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><br>
-                                                    <span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><input type='radio'><br>
-                                                    <span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span><span${numbee2++}><input type='checkbox'></span></div><br>`
-    numbeeArray.push(document.getElementById(`name${numbee}`))
-});
+function defaultBlocks(){
+    //first 3 is for first row, second three is for second row and so on
+    defaultBlocksList.push([true,true,true, false,false,true, false,false,true])
+    defaultBlocksList.push([true,true,true, false,false,true, false,false,false])
+    defaultBlocksList.push([false,true,true, false,false,true, false,false,true])
+    defaultBlocksList.push([false,false,true, false,true,true, false,true,false])
+    defaultBlocksList.push([true,true,true, false,true,false, false,false,false])
+    defaultBlocksList.push([true,true,false, false,true,true, false,false,false])
+    defaultBlocksList.push([true,true,false, true,true,false, false,false,false])
+    defaultBlocksList.push([true,false,false, true,false,false, true,false,false])
+}
 
+defaultBlocks()
+
+function roundToSizeOfBlocks(number){
+    return (Math.round(number/sizeOfBlocks))*sizeOfBlocks
+}
+
+function findSmallest(inlist){
+    let min = inlist[0]
+    for (let inst of inlist){
+        if (inst<=min){
+            min = inst
+        }
+    }
+    return min
+}
+
+function findLargest(inlist){
+    let max = inlist[0]
+    for (let inst of inlist){
+        if (inst>=max){
+            max = inst
+        }
+    }
+    return max
+}
+
+function findCentre(blocksfindingList){
+    let minX = blocksfindingList[0].x
+    let minY = blocksfindingList[0].y
+    let maxX = blocksfindingList[0].x
+    let maxY = blocksfindingList[0].y
+    for (let blockoflist of blocksfindingList){
+        if (blockoflist.x>=maxX){
+            maxX = blockoflist.x
+        }
+        if (blockoflist.y>=maxY){
+            maxY = blockoflist.y
+        }
+        if (blockoflist.x<=minX){
+            minX = blockoflist.x
+        }
+        if (blockoflist.y<=minY){
+            minY = blockoflist.y
+        }
+    }
+    let dx = maxX-minX+sizeOfBlocks/2
+    let dy = maxY-minY+sizeOfBlocks/2
+    let perfect_centre = [minX+dx/2,minY+dy/2]
+    let closest_centre = blocksfindingList[0].centre
+    for (let blockoflist of blocksfindingList){
+        if (absoluteDistance(perfect_centre,blockoflist.centre)<=absoluteDistance(closest_centre,perfect_centre)){
+            closest_centre = blockoflist.centre
+        }
+    }
+    return closest_centre
+}
+
+function returncurrentBlocks(ourblockslist){
+    let ournewList = []
+    for (let elBlock of ourblockslist){
+        if (elBlock.current){
+            ournewList.push(elBlock)
+        }
+    }
+    return ournewList
+}
 
 
 function absoluteDistance(target_A,target_B){
@@ -58,13 +134,36 @@ function currentBlocksLenght(ourblockslist){
     return ourNum
 }
 
+function getRandomInt(min, max) {
+  min = Math.ceil(min)
+  max = Math.floor(max)
+  return Number(Math.floor(Math.random() * (max - min + 1)) + min)
+}
+
+function listToBlocks(ordefaultNum){
+    // goes in collums then rowes - example: [true,true,true, true,false,false, true,false,false] - result (with # as a block and x as space):
+    // #xx
+    // #xx
+    // ###
+    let posinlist = 0
+    for (let row=0;row<blockFormula[0];row+=1){
+        for (let collum=0;collum<blockFormula[1];collum+=1){
+            //console.log(`Sloupec: ${collum} a radek ${row}`)
+            if (defaultBlocksList[ordefaultNum][posinlist++]){
+                fallingBlocks.push(new Block({currentblock: true, x: myCanvas.width/2+(collum*sizeOfBlocks),y: row*-sizeOfBlocks,id: ids++}))
+            }
+            
+        }
+    }
+}
+
 
 
 class Block{
-    constructor(currentblock,x,y,id) {
+    constructor({currentblock,x,y,id}) {
         this.id = id
         this.size_x = 100
-        this.size_y = 100
+        this.size_y = this.size_x
         this.stopped = false
         this.x = x
         this.y = y
@@ -75,6 +174,16 @@ class Block{
         this.right = null
         this.current = currentblock
         this.makeNewBlocklocc = [true,-10]
+    }
+    rotating(centreOfRotation,agleOfRotation){
+        let copyOfCentre = [this.x+this.size_x/2,this.y+this.size_y/2]
+        let dx = copyOfCentre[0] - centreOfRotation[0]
+        let dy = copyOfCentre[1] - centreOfRotation[1]
+        let absdis = absoluteDistance(copyOfCentre,centreOfRotation)
+        let absang = Math.atan2(dy,dx)+(agleOfRotation*(Math.PI/180))
+        let x2 = roundToSizeOfBlocks(Math.cos(absang)*absdis)
+        let y2 = roundToSizeOfBlocks(Math.sin(absang)*absdis)
+        return [centreOfRotation[0] + x2 - this.size_x/2, centreOfRotation[1] + y2 - this.size_y/2]
     }
     colisions() {
        for (let blocker of blocksDown){
@@ -109,36 +218,38 @@ class Block{
        }
        return [false, -10]
     }
-    collision_expept(change_x){
+    collision_expept(change_x,change_y){
         let local_centre = [this.x+this.size_x/2,this.y+this.size_y/2]
         local_centre[0] += change_x
+        local_centre[1] += change_y
         let local_x = this.x + change_x
+        let local_y = this.y + change_y
         for (let blocker of blocksDown){
         if (!blocker.stopped){
             let locAbsDis = absoluteDistance(blocker.centre,local_centre)
             if (locAbsDis<(this.outerRad+blocker.outerRad)) {
-                if (locAbsDis<(this.innerRad+blocker.innerRad)){
+                if (locAbsDis<=(this.innerRad+blocker.innerRad)){
                     return true
                 }
                 if (blocker.x<local_x && local_x<blocker.x+blocker.size_x){
-                    if (blocker.y<this.y && this.y<blocker.y+blocker.size_y){
+                    if (blocker.y<local_y && local_y<blocker.y+blocker.size_y){
                         return true
                     }
-                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                    if (blocker.y<local_y+this.size_y && local_y+this.size_y<blocker.y+blocker.size_y){
                         return true
                     }
                 }
-                if (blocker.x<local_x+this.size_x && local_x+this.size_x<blocker.x+blocker.size_x){
-                    if (blocker.y<=this.y && this.y<=blocker.y+blocker.size_y){
+                if (blocker.x<=local_x+this.size_x && local_x+this.size_x<=blocker.x+blocker.size_x){
+                    if (blocker.y<local_y && local_y<blocker.y+blocker.size_y){
                         return true
                     }
-                    if (blocker.y<this.y+this.size_y && this.y+this.size_y<blocker.y+blocker.size_y){
+                    if (blocker.y<local_y+this.size_y && local_y+this.size_y<blocker.y+blocker.size_y){
                         return true
                     }
                 }
             }}
         }
-       if (this.y+this.size_y >= myCanvas.height){
+       if (local_y+this.size_y >= myCanvas.height){
          return true
        }
        return false
@@ -148,6 +259,15 @@ class Block{
         this.centre = [this.x+this.size_x/2,this.y+this.size_y/2]
     }
     stableSetup() {
+        for (let blocker of blocksDown){
+            //one final check
+            if (!(this.id===blocker.id)){
+                if (absoluteDistance(blocker.centre,this.centre)<=(this.innerRad)){
+                    this.y -= blocker.size_y
+                    this.centre = [this.x+this.size_x/2,this.y+this.size_y/2]
+                }
+            }   
+        }
         for (let blocker of blocksDown){
             if (blocker.centre[1]-blocker.innerRad<=this.centre[1] && blocker.centre[1]+blocker.innerRad>=this.centre[1]){
                 if (blocker.centre[0]-blocker.innerRad<=this.centre[0]+this.outerRad && blocker.centre[0]+blocker.innerRad>=this.centre[0]+this.outerRad){
@@ -168,13 +288,16 @@ class Block{
         }
     }
     checkRow(){
+        let returnable = false
+        if (!(this.right === null)){
+            if (!(this.right === 'right')){
+                returnable = this.right.checkRow()
+            }
+        }
         if (this.right === 'right') {
-            return true
+            returnable = true
         }
-        if (this.right === null) {
-            return false
-        }
-        return this.right.checkRow()
+        return returnable
     }
     turnOffRow(){
          if (!(this.right==='right')){
@@ -207,10 +330,7 @@ class Block{
             this.current = false
             fallingBlocks = leaveNotCurrentID(fallingBlocks,this.id)
             if (startnewGen <= 0){
-                fallingBlocks.push(new Block(true,myCanvas.width/2,0,ids++))
-                fallingBlocks.push(new Block(true,myCanvas.width/2+100,0,ids++))
-                //fallingBlocks.push(new Block(true,myCanvas.width/2-100,0,ids++))
-                //fallingBlocks.push(new Block(true,myCanvas.width/2+200,0,ids++))
+                listToBlocks(getRandomInt(0,defaultBlocksList.length-1))
                 startnewGen = currentBlocksLenght(fallingBlocks)
             
         }
@@ -220,7 +340,7 @@ class Block{
 
 let ids = 0
 let stopping = false
-fallingBlocks.push(new Block(true,myCanvas.width/2,0,ids++))
+fallingBlocks.push(new Block({currentblock: true, x: myCanvas.width/2,y: 0,id: ids++}))
 let startnewGen = currentBlocksLenght(fallingBlocks)
 
 
@@ -253,16 +373,40 @@ function main() {
 }
 
 window.addEventListener('keydown', (event) => {
+    if (event.key === 'r'){
+        let smallCurrentList = returncurrentBlocks(fallingBlocks)
+        let absCentre = findCentre(smallCurrentList)
+        let canFallNum = 0
+        for (let bloka of smallCurrentList){
+            let rotated_xy = bloka.rotating(absCentre,rotation_angle)
+            let dx = bloka.x - rotated_xy[0]
+            let dy = bloka.y - rotated_xy[1]
+            if (!(bloka.collision_expept(dx,dy)) && rotated_xy[0]<=myCanvas.width-bloka.size_x*2 && rotated_xy[0]>=bloka.size_x){
+                canFallNum += 1
+            }
+        }
+        if (canFallNum>=smallCurrentList.length){
+            for (let bloka of smallCurrentList){
+                let rotated_xy = bloka.rotating(absCentre,rotation_angle)
+                bloka.x = rotated_xy[0]
+                bloka.y = rotated_xy[1]
+                bloka.centre = [bloka.x+bloka.size_x/2,bloka.y+bloka.size_y/2]
+            }
+            canFallNum = 0
+        }
+        //console.log(`mame: ${canFallNum}`)
+        //console.log(`potrebujeme ${smallCurrentList.length}`)
+    }
     if (event.key === 'ArrowRight') {
         let fallNum = 0
         for (let fallers of fallingBlocks){
-            if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x)) && fallers.current){
+            if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x,0)) && fallers.current){
                 fallNum += 1
             }
         }
         if (fallNum>=currentBlocksLenght(fallingBlocks)){
             for (let fallers of fallingBlocks){
-                if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x)) && fallers.current){
+                if (fallers.x<=myCanvas.width-fallers.size_x*2 && !(fallers.collision_expept(fallers.size_x,0)) && fallers.current){
                     fallers.x += fallers.size_x
                     fallers.centre[0] += fallers.size_x
                 }
@@ -273,13 +417,13 @@ window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowLeft') {
         let fallNum = 0
         for (let fallers of fallingBlocks){
-            if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x)) && fallers.current){
+            if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x,0)) && fallers.current){
                 fallNum += 1
             }
         }
         if (fallNum>=currentBlocksLenght(fallingBlocks)){
             for (let fallers of fallingBlocks){
-                if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x)) && fallers.current){
+                if (fallers.x>=fallers.size_x && !(fallers.collision_expept(-fallers.size_x,0)) && fallers.current){
                     fallers.x -= fallers.size_x
                     fallers.centre[0] -= fallers.size_x
                 }
@@ -288,5 +432,21 @@ window.addEventListener('keydown', (event) => {
         }
 }
 });
+
+
+addConfig_blocks.addEventListener("click", () => {
+    document.getElementById('boxy').innerHTML += `<div id="blockWhole${numbee}"><span><input type='checkbox' id="blockInWholeBlock${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span><br>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span><input type='radio' id="blocksStarted${numbee}"><br>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
+                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span></div><br>`
+    numbee += 1
+    numbee2 = 0
+});
+
 
 main()

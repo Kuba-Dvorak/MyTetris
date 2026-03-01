@@ -13,26 +13,33 @@ let rotation_angle = 90
 let difficulty = 3
 let defaultOrMadeBlocks = true
 let sizeOfBlocks = 100
-const saved = localStorage.getItem('TetrisData')
-let finalSettings = null
-if (saved===localStorage.getItem('TetrisData')){
+const saved = sessionStorage.getItem('TetrisData')
+let finalSettings = {
+    sizeOfBlock: 100,
+    colorMode: false,
+    difficulty: 3,
+    classic: false,
+    color: []
+
+}
+if (saved){
     finalSettings = JSON.parse(saved)
 }   
-if (!(saved===localStorage.getItem('TetrisData'))){
+if (!(saved)){
     console.log('Nic neulozeno')
 }
 
 function setSettings(){
     //user settings (set by the user himself)
-    if (saved===localStorage.getItem('TetrisData')){
+    if (saved){
         difficulty = Number(finalSettings.difficulty)
         sizeOfBlocks = Number(finalSettings.sizeOfBlock)
         defaultOrMadeBlocks = !(Boolean(finalSettings.classic))
-        addDefaultColors()
+        defaultColorList = finalSettings.color
         addDefaultBlocks()
     }
     //default settings
-    if (!(saved===localStorage.getItem('TetrisData'))) {
+    if (!(saved)) {
         defaultBlocksList = []
         defaultColorList = []
         blockFormula = [3,3]
@@ -49,6 +56,7 @@ function setSettings(){
 setSettings()
 
 
+
 function addDefaultBlocks(){
     //first 3 is for first row, second three is for second row and so on
     defaultBlocksList.push([true,true,true, false,false,true, false,false,true])
@@ -62,15 +70,15 @@ function addDefaultBlocks(){
 }
 
 function addDefaultColors(){
-    defaultColorList.push('red')
-    defaultColorList.push('white')
-    defaultColorList.push('yellow')
-    defaultColorList.push('green')
-    defaultColorList.push('blue')
-    defaultColorList.push('purple')
-    defaultColorList.push('orange')
-    defaultColorList.push('cyan')
-    defaultColorList.push('pink')
+    defaultColorList.push('#ff0000')
+    defaultColorList.push('#ffffff')
+    defaultColorList.push('#ffff00')
+    defaultColorList.push('#008000')
+    defaultColorList.push('#0000ff')
+    defaultColorList.push('#800080')
+    defaultColorList.push('#ffa500')
+    defaultColorList.push('#00ffff')
+    defaultColorList.push('#ffc0cb')
 }
 
 function roundToSizeOfBlocks(number){

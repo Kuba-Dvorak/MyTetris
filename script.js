@@ -1,22 +1,55 @@
 const myCanvas = document.querySelector('#MyCanvas')
 const drawer = myCanvas.getContext('2d')
-const mySlider = document.querySelector('#MySlider')
 const startBut =  document.querySelector('#MyStartButton')
 let blocksDown = []
 let fallingBlocks = []
 
 
 
-let addConfig_blocks = document.getElementById("AddConfig")
-let numbee = 0
-let numbee2 = 0
-const defaultBlocksList = []
-const blockFormula = [3,3]
-const rotation_angle = 90
+let defaultBlocksList = []
+let defaultColorList = []
+let blockFormula = [3,3]
+let rotation_angle = 90
+let difficulty = 3
 let defaultOrMadeBlocks = true
-const sizeOfBlocks = 100
+let sizeOfBlocks = 100
+const saved = localStorage.getItem('TetrisData')
+let finalSettings = null
+if (saved===localStorage.getItem('TetrisData')){
+    finalSettings = JSON.parse(saved)
+}   
+if (!(saved===localStorage.getItem('TetrisData'))){
+    console.log('Nic neulozeno')
+}
 
-function defaultBlocks(){
+function setSettings(){
+    //user settings (set by the user himself)
+    if (saved===localStorage.getItem('TetrisData')){
+        difficulty = Number(finalSettings.difficulty)
+        sizeOfBlocks = Number(finalSettings.sizeOfBlock)
+        defaultOrMadeBlocks = !(Boolean(finalSettings.classic))
+        addDefaultColors()
+        addDefaultBlocks()
+    }
+    //default settings
+    if (!(saved===localStorage.getItem('TetrisData'))) {
+        defaultBlocksList = []
+        defaultColorList = []
+        blockFormula = [3,3]
+        rotation_angle = 90
+        difficulty = 3
+        defaultOrMadeBlocks = true
+        sizeOfBlocks = 100
+        addDefaultColors()
+        addDefaultBlocks()
+    }
+}
+
+
+setSettings()
+
+
+function addDefaultBlocks(){
     //first 3 is for first row, second three is for second row and so on
     defaultBlocksList.push([true,true,true, false,false,true, false,false,true])
     defaultBlocksList.push([true,true,true, false,false,true, false,false,false])
@@ -28,7 +61,17 @@ function defaultBlocks(){
     defaultBlocksList.push([true,false,false, true,false,false, true,false,false])
 }
 
-defaultBlocks()
+function addDefaultColors(){
+    defaultColorList.push('red')
+    defaultColorList.push('white')
+    defaultColorList.push('yellow')
+    defaultColorList.push('green')
+    defaultColorList.push('blue')
+    defaultColorList.push('purple')
+    defaultColorList.push('orange')
+    defaultColorList.push('cyan')
+    defaultColorList.push('pink')
+}
 
 function roundToSizeOfBlocks(number){
     return (Math.round(number/sizeOfBlocks))*sizeOfBlocks
@@ -146,11 +189,12 @@ function listToBlocks(ordefaultNum){
     // #xx
     // ###
     let posinlist = 0
+    let colorOfBlock = defaultColorList[getRandomInt(0,defaultColorList.length-1)]
     for (let row=0;row<blockFormula[0];row+=1){
         for (let collum=0;collum<blockFormula[1];collum+=1){
             //console.log(`Sloupec: ${collum} a radek ${row}`)
             if (defaultBlocksList[ordefaultNum][posinlist++]){
-                fallingBlocks.push(new Block({currentblock: true, x: myCanvas.width/2+(collum*sizeOfBlocks),y: row*-sizeOfBlocks,id: ids++}))
+                fallingBlocks.push(new Block({currentblock: true, x: myCanvas.width/2+(collum*sizeOfBlocks),y: row*-sizeOfBlocks,id: ids++,color:colorOfBlock}))
             }
             
         }
@@ -160,9 +204,9 @@ function listToBlocks(ordefaultNum){
 
 
 class Block{
-    constructor({currentblock,x,y,id}) {
+    constructor({currentblock,x,y,id,color}) {
         this.id = id
-        this.size_x = 100
+        this.size_x = sizeOfBlocks
         this.size_y = this.size_x
         this.stopped = false
         this.x = x
@@ -174,6 +218,7 @@ class Block{
         this.right = null
         this.current = currentblock
         this.makeNewBlocklocc = [true,-10]
+        this.color = color
     }
     rotating(centreOfRotation,agleOfRotation){
         let copyOfCentre = [this.x+this.size_x/2,this.y+this.size_y/2]
@@ -258,7 +303,20 @@ class Block{
         this.y += difficulty
         this.centre = [this.x+this.size_x/2,this.y+this.size_y/2]
     }
+    finalCheck(){
+       for (let blocker of blocksDown){
+            //one final check
+            if (!(this.id===blocker.id)){
+                if (absoluteDistance(blocker.centre,this.centre)<=(this.innerRad)){
+                    this.y -= blocker.size_y
+                    this.centre = [this.x+this.size_x/2,this.y+this.size_y/2]
+                    this.finalCheck()
+                }
+            }   
+        } 
+    }
     stableSetup() {
+        this.finalCheck()
         for (let blocker of blocksDown){
             //one final check
             if (!(this.id===blocker.id)){
@@ -310,8 +368,7 @@ class Block{
         this.x = -1000
     }
     updatemyself(){
-        let actualSliderValue = parseFloat(mySlider.value)
-        this.updateblock(actualSliderValue)
+        this.updateblock(difficulty)
         this.makeNewBlocklocc = this.colisions()
             
         if (this.makeNewBlocklocc[0]){
@@ -340,22 +397,24 @@ class Block{
 
 let ids = 0
 let stopping = false
-fallingBlocks.push(new Block({currentblock: true, x: myCanvas.width/2,y: 0,id: ids++}))
-let startnewGen = currentBlocksLenght(fallingBlocks)
+listToBlocks(getRandomInt(0,defaultBlocksList.length-1))
+startnewGen = currentBlocksLenght(fallingBlocks)
+let startedOnce = false
 
 
 function main() {
-    drawer.fillStyle = 'red'
     drawer.strokeStyle = 'black'
     if (!stopping){
         drawer.clearRect(0, 0, myCanvas.width, myCanvas.height)
         for (let fallers of fallingBlocks){
             fallers.updatemyself()
+            drawer.fillStyle = fallers.color
             drawer.fillRect(fallers.x, fallers.y, fallers.size_x, fallers.size_y)
             drawer.strokeRect(fallers.x, fallers.y, fallers.size_x, fallers.size_y)
         }
         for (let blocky of blocksDown){
             if (!blocky.stopped){
+                drawer.fillStyle = blocky.color
                 drawer.fillRect(blocky.x, blocky.y, blocky.size_x, blocky.size_y)
                 drawer.strokeRect(blocky.x, blocky.y, blocky.size_x, blocky.size_y)
                 if (blocky.left === 'left'){
@@ -381,7 +440,7 @@ window.addEventListener('keydown', (event) => {
             let rotated_xy = bloka.rotating(absCentre,rotation_angle)
             let dx = bloka.x - rotated_xy[0]
             let dy = bloka.y - rotated_xy[1]
-            if (!(bloka.collision_expept(dx,dy)) && rotated_xy[0]<=myCanvas.width-bloka.size_x*2 && rotated_xy[0]>=bloka.size_x){
+            if (!(bloka.collision_expept(dx,dy)) && rotated_xy[0]<=myCanvas.width-bloka.size_x*2 && rotated_xy[0]>=0){
                 canFallNum += 1
             }
         }
@@ -434,19 +493,9 @@ window.addEventListener('keydown', (event) => {
 });
 
 
-addConfig_blocks.addEventListener("click", () => {
-    document.getElementById('boxy').innerHTML += `<div id="blockWhole${numbee}"><span><input type='checkbox' id="blockInWholeBlock${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span><br>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span><input type='radio' id="blocksStarted${numbee}"><br>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span>
-                                                    <span><input type='checkbox' id="blockInWholeBlock${numbee}a${numbee2++}"></span></div><br>`
-    numbee += 1
-    numbee2 = 0
+startBut.addEventListener("click", () => {
+    if (!startedOnce){
+        main()
+        startedOnce = true
+    }
 });
-
-
-main()

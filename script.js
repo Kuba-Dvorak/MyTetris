@@ -34,7 +34,7 @@ function setSettings(){
     if (saved){
         difficulty = Number(finalSettings.difficulty)
         sizeOfBlocks = Number(finalSettings.sizeOfBlock)
-        defaultOrMadeBlocks = !(Boolean(finalSettings.classic))
+        defaultOrMadeBlocks = Boolean(finalSettings.classic)
         defaultColorList = finalSettings.color
         addDefaultBlocks()
     }
@@ -45,7 +45,7 @@ function setSettings(){
         blockFormula = [3,3]
         rotation_angle = 90
         difficulty = 3
-        defaultOrMadeBlocks = true
+        defaultOrMadeBlocks = false
         sizeOfBlocks = 100
         addDefaultColors()
         addDefaultBlocks()
@@ -175,6 +175,16 @@ function leaveNotCurrentID(ourblockslist,id){
     return ournewList
 }
 
+function leaveNotCurrent(ourblockslist){
+    let ournewList = []
+    for (let elBlock of ourblockslist){
+        if (!elBlock.current){
+            ournewList.push(elBlock)
+        }
+    }
+    return ournewList
+}
+
 function currentBlocksLenght(ourblockslist){
     let ourNum = 0
     for (let elBlock of ourblockslist){
@@ -227,6 +237,8 @@ class Block{
         this.current = currentblock
         this.makeNewBlocklocc = [true,-10]
         this.color = color
+        this.moved = false
+        this.fell = false
     }
     rotating(centreOfRotation,agleOfRotation){
         let copyOfCentre = [this.x+this.size_x/2,this.y+this.size_y/2]
@@ -292,7 +304,7 @@ class Block{
                         return true
                     }
                 }
-                if (blocker.x<=local_x+this.size_x && local_x+this.size_x<=blocker.x+blocker.size_x){
+                if (blocker.x<local_x+this.size_x && local_x+this.size_x<blocker.x+blocker.size_x){
                     if (blocker.y<local_y && local_y<blocker.y+blocker.size_y){
                         return true
                     }
@@ -325,15 +337,6 @@ class Block{
     }
     stableSetup() {
         this.finalCheck()
-        for (let blocker of blocksDown){
-            //one final check
-            if (!(this.id===blocker.id)){
-                if (absoluteDistance(blocker.centre,this.centre)<=(this.innerRad)){
-                    this.y -= blocker.size_y
-                    this.centre = [this.x+this.size_x/2,this.y+this.size_y/2]
-                }
-            }   
-        }
         for (let blocker of blocksDown){
             if (blocker.centre[1]-blocker.innerRad<=this.centre[1] && blocker.centre[1]+blocker.innerRad>=this.centre[1]){
                 if (blocker.centre[0]-blocker.innerRad<=this.centre[0]+this.outerRad && blocker.centre[0]+blocker.innerRad>=this.centre[0]+this.outerRad){
@@ -375,35 +378,36 @@ class Block{
         this.y = -50
         this.x = -1000
     }
+    stabilize(change_y){
+        this.y = change_y-this.size_y
+        this.fell = true
+        this.stableSetup()
+        blocksDown.push(this)
+        if (this.current){
+            startnewGen -= 1
+        }
+        this.current = false
+        fallingBlocks = leaveNotCurrentID(fallingBlocks,this.id)
+    }
     updatemyself(){
         this.updateblock(difficulty)
-        this.makeNewBlocklocc = this.colisions()
-            
+        this.moved = true
+        this.makeNewBlocklocc = this.colisions()    
         if (this.makeNewBlocklocc[0]){
-            this.y = this.makeNewBlocklocc[1]-this.size_y
             if (this.y<50){
                 stopping = true
                 drawer.fillStyle = 'blue'
                 drawer.fillRect(0, 0, 200, 150)
                 //here will be a lose screen information
             }
-            this.stableSetup()
-            blocksDown.push(this)
-            if (this.current){
-                startnewGen -= 1
-            }
-            this.current = false
-            fallingBlocks = leaveNotCurrentID(fallingBlocks,this.id)
-            if (startnewGen <= 0){
-                listToBlocks(getRandomInt(0,defaultBlocksList.length-1))
-                startnewGen = currentBlocksLenght(fallingBlocks)
-            
-        }
+            this.stabilize(this.makeNewBlocklocc[1])
         }
     }
 }
 
+
 let ids = 0
+let iterace = 0
 let stopping = false
 listToBlocks(getRandomInt(0,defaultBlocksList.length-1))
 startnewGen = currentBlocksLenght(fallingBlocks)
@@ -412,26 +416,40 @@ let startedOnce = false
 
 function main() {
     drawer.strokeStyle = 'black'
+    iterace = 0
     if (!stopping){
         drawer.clearRect(0, 0, myCanvas.width, myCanvas.height)
+        //generate new blocks
+        if (startnewGen <= 0){
+                listToBlocks(getRandomInt(0,defaultBlocksList.length-1))
+                startnewGen = currentBlocksLenght(fallingBlocks)
+            
+        }
+        //draw falling blocks
         for (let fallers of fallingBlocks){
             fallers.updatemyself()
             drawer.fillStyle = fallers.color
             drawer.fillRect(fallers.x, fallers.y, fallers.size_x, fallers.size_y)
             drawer.strokeRect(fallers.x, fallers.y, fallers.size_x, fallers.size_y)
         }
+
+        for (let fallers of fallingBlocks){
+            fallers.moved = false
+        }
+
         for (let blocky of blocksDown){
             if (!blocky.stopped){
                 drawer.fillStyle = blocky.color
                 drawer.fillRect(blocky.x, blocky.y, blocky.size_x, blocky.size_y)
                 drawer.strokeRect(blocky.x, blocky.y, blocky.size_x, blocky.size_y)
                 if (blocky.left === 'left'){
-                if (blocky.checkRow()){
-                    blocky.turnOffRow()
-                    blocksDown = eliminateLostBlocks(blocksDown)
-                    fallingBlocks = fallingBlocks.concat(blocksDown)
-                    blocksDown = []
-                }
+                    if (blocky.checkRow()){
+                        console.log('buum')
+                        blocky.turnOffRow()
+                        blocksDown = eliminateLostBlocks(blocksDown)
+                        fallingBlocks = fallingBlocks.concat(blocksDown)
+                        blocksDown = []
+                    }
             }
             }
         }

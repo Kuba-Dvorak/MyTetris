@@ -20,6 +20,13 @@ let first = true
 setSettings()
 
 
+class BlockSpreadSheet{
+    constructor(table){
+        this.table = table
+    }
+}
+
+
 function addDefaultBlocks(){
     defaultBlocksList.push([true,true,true, false,false,true, false,false,true])
     defaultBlocksList.push([true,true,true, false,false,true, false,false,false])
@@ -49,7 +56,9 @@ function setSetting(theset){
     blockSize.value = theset.sizeOfBlock
     colorsMode.checked = theset.colorMode
     for (let color of defaultColorList){
-        addColor(color)
+        if (!(colors.length>=10000)){
+            addColor(color)
+        }
     }
 }
 
@@ -62,7 +71,9 @@ function setSettings(){
         blockSize.value = finalSettings.sizeOfBlock
         colorsMode.checked = finalSettings.colorMode
         for (let color of finalSettings.color){
-            addColor(color)
+            if (!(colors.length>=10000)){
+                addColor(color)
+        }
     }
     }
     if (!saved){
@@ -83,6 +94,9 @@ function deleteFromListByIndex(myId,myList){
     for (let myinst of myList){
         if (!(indexer === myId)){
             newlist.push(myinst)
+        }
+        if (indexer === myId){
+            newlist.push(null)
         }
         indexer += 1
     }
@@ -112,7 +126,7 @@ function getColors(){
     let returnlist = []
     for (let oneColor of colors){
         if (oneColor===null){
-            returnlist.push('#030ff0')
+            
         }
         else {
             returnlist.push(oneColor.value)
@@ -134,7 +148,9 @@ exiter.addEventListener("click", () => {
 });
 
 colorAdder.addEventListener("click", () => {
-    addColor('#000000')
+    if (!(colors.length>=10000)){
+        addColor('#000000')
+    }
 });
 
 blockAdder.addEventListener("click", () => {
@@ -154,7 +170,7 @@ function strokeSquareGrid(drawer){
         }
 }
 
-function fillRectangle(x,y,color){
+function fillsMyRectangle(x,y,color){
     for (let drawers of brushes){
         drawers.fillStyle = color
         drawers.fillRectangle(x,y,Number(blockSize.value),Number(blockSize.value))

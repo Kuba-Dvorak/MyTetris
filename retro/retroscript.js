@@ -2,6 +2,7 @@ const myCanvas = document.querySelector('#MyCanvas')
 const drawer = myCanvas.getContext('2d')
 const startBut =  document.querySelector('#MyStartButton')
 const blocksAll = []
+const fallenblocks = []
 
 
 //Enum
@@ -22,63 +23,193 @@ const regularUpdates = {
     waitting: 2
 }
 
+const stateOfBlock = {
+    collision: 1,
+    falling: 2,
+    currentUnder: 3
+}
+
+const stateOfList = {
+    fallen: 1,
+    allBlocks: 2
+}
+
+const gameState = {
+    playing: 1,
+    lost: 2
+}
+
+
+class blocksShape{
+    constructor(){
+        this.blocks = []
+        this.moving = true
+    }
+    stabilizeMyBlocks(map, sizeByBlocks, blockTypeList, myBlockerFormula){
+        let canGenNew = true
+        this.moving = false
+        for (let fallingBlock of this.blocks){
+            if (this.row===1){
+                canGenNew = false
+            } 
+            fallingBlock.stabilize(map)
+        }
+        if (canGenNew && currentGamestate === gameState.playing){
+                generateNewBlocks('red',sizeByBlocks, blockTypeList, getRandomInt(0,blockTypeList.length-1), myBlockerFormula)
+            }
+        if (!canGenNew){
+            currentGamestate = gameState.lost
+        }
+        blocksAll.splice(blocksAll.indexOf(this),1)
+    }
+    waitersFallDown(map,backgroundcolor, sizebyblock){
+        let waitingNum = false
+        for (let fallingBlock of this.blocks){
+            if (fallingBlock.movable && fallingBlock.waiting){
+                if (fallingBlock.updateblockdowncheck(map) === stateOfBlock.currentUnder){
+                    fallingBlock.waiting = true
+                    waitingNum = true
+                }
+                else{
+                    fallingBlock.updateblockdown(map,backgroundcolor, sizebyblock)
+                    fallingBlock.waiting = false
+                }
+            }
+        }
+        if (waitingNum){
+            this.waitersFallDown(map,backgroundcolor, sizebyblock)
+        }
+    }
+    updateMyBlocks(map, backgroundcolor, sizebyblock){
+        let yesnumber = 0
+        for (let fallingBlock of this.blocks){
+            if (fallingBlock.movable){
+                if (fallingBlock.updateblockdowncheck(map) === stateOfBlock.falling || fallingBlock.updateblockdowncheck(map) === stateOfBlock.currentUnder){
+                    yesnumber += 1
+                }
+                else{
+                    this.stabilizeMyBlocks(map,sizeOfBlocks,defaultBlocksList, blockFormula)
+                }
+            }
+        }
+        if (yesnumber>=this.blocks.length){
+            let waitingNum = false
+            for (let fallingBlock of this.blocks){
+                if (fallingBlock.movable){
+                    if (fallingBlock.updateblockdowncheck(map) === stateOfBlock.currentUnder){
+                        fallingBlock.waiting = true
+                        waitingNum = true
+                    }
+                    else{
+                        fallingBlock.updateblockdown(map,backgroundcolor, sizebyblock)
+                    }
+                }
+            }
+            if (waitingNum){
+                    this.waitersFallDown(map,backgroundcolor, sizebyblock)
+            }
+        }
+    }
+    pushToSideMyBlocks(leftOrRight,map, backgroundcolor, sizebyblock){
+        let yesnumber = 0
+        console.log('jedu do strany')
+        for (let fallingBlock of this.blocks){
+            if (fallingBlock.movable){
+                if (fallingBlock.pushblockinrowcheck(leftOrRight,map,backgroundcolor,sizebyblock)){
+                    yesnumber += 1
+                }
+            }
+        }
+        if (yesnumber>=this.blocks.length){
+            for (let fallingBlock of this.blocks){
+                if (fallingBlock.movable){
+                    fallingBlock.pushblockinrow(leftOrRight,map,backgroundcolor,sizebyblock)
+                }
+            }
+        }
+    }
+    rotateMyBlocks(){
+    }
+}
+
 
 class BlockRetro{
-    constructor({row,collum,color,current,size}){
+    constructor({row,collum,color,current,size, blockShapeOwnerindex}){
         this.row = row
         this.collum = collum
         this.color = color
         this.current = current
         this.size = size
         this.id = ids++
+        this.movable = true
+        this.blockShapeOwnerindex = blockShapeOwnerindex
+        this.insiderList = stateOfList.allBlocks
+        this.moved = false
+        this.waiting = false
     }
-    updateblockdown(map, backgroundcolor, sizebyblock, listofBlocks){
-        console.log(`Delka mapy: ${map.length}`)
+    updateDraw(sizebyblock){
+        fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
+    }
+    updateblockdown(map, backgroundcolor, sizebyblock){
         if (map.length>(this.row+2)){
-            if (map[this.row+1][this.collum] === blockMode.unocuppied || map[this.row+1][this.collum] === blockMode.ocuppiedByCurrent){
-                map[this.row][this.collum] = blockMode.unocuppied
-                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
-                this.row += 1
-                map[this.row][this.collum] = blockMode.ocuppiedByCurrent
-                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
+            map[this.row][this.collum] = blockMode.unocuppied
+            fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
+            this.row += 1
+            map[this.row][this.collum] = blockMode.ocuppiedByCurrent
+            fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
+            this.moved = true
+        }
+    }
+    updateblockdowncheck(map){
+        if (map.length>(this.row+2)){
+            if (map[this.row+1][this.collum] === blockMode.unocuppied){
+                return stateOfBlock.falling
             }
-            else{
-                this.stabilize(map,listofBlocks,true)
-                // a check of the pile and if it's reached the top
-                if (!(this.row===1)){
-                    generateNewBlocks([1,4],'red',sizeOfBlocks)
-                }
+            if (map[this.row+1][this.collum] === blockMode.ocuppiedByCurrent){
+                return stateOfBlock.currentUnder
+            }
+            if (map[this.row+1][this.collum] === blockMode.ocuppiedByFallen){
+                return stateOfBlock.collision
             }
         }
         else{
-            this.stabilize(map,listofBlocks,true)
-            if (!(this.row===1)){
-                generateNewBlocks([1,4],'red',sizeOfBlocks)
-            }
+            return stateOfBlock.collision
         }
     }
     pushblockinrow(leftOrRight, map, backgroundcolor, sizebyblock){
         if (map.length>=this.row){
             if (map[this.row].length>this.collum+(leftOrRight*2)){
-                if (map[this.row][this.collum+leftOrRight] === blockMode.unocuppied || map[this.row][this.collum+leftOrRight] === blockMode.ocuppiedByCurrent){
-                    map[this.row][this.collum] = blockMode.unocuppied
-                    fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
-                    this.collum += leftOrRight
-                    map[this.row][this.collum] = blockMode.ocuppiedByCurrent
-                    fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
-                }
+                map[this.row][this.collum] = blockMode.unocuppied
+                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
+                this.collum += leftOrRight
+                map[this.row][this.collum] = blockMode.ocuppiedByCurrent
+                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
             }
         }
     }
-    stabilize(map, listofBlocks, accuallyStopped){
+    pushblockinrowcheck(leftOrRight, map){
+        if (map.length>=this.row){
+            if (map[this.row].length>this.collum+(leftOrRight*2)){
+                if (map[this.row][this.collum+leftOrRight] === blockMode.unocuppied || map[this.row][this.collum+leftOrRight] === blockMode.ocuppiedByCurrent){
+                    return true
+                }
+            }
+        }
+        return false
+    }
+    stabilize(map){
         map[this.row][this.collum] = blockMode.ocuppiedByFallen
         this.current = false
-        if (accuallyStopped){
-            for (let blockloc of listofBlocks){
-                if (blockloc.current){
-                    blockloc.stabilize(map,[],false)
-                }   
-            }
+        this.movable = false
+        if (this.insiderList === stateOfList.allBlocks){
+            this.stateOfList = stateOfList.fallen
+            fallenblocks.push(this)
+            //blocksAll[this.blockShapeOwnerindex].splice(blocksAll[this.blockShapeOwnerindex].blocks.indexOf(this), 1)
+        }
+    }
+    fallAgain(map){
+        if (!(this.current) && map[this.row][this.collum]===blockMode.ocuppiedByCurrent && (!(this.movable))){
+            this.current = true
         }
     }
 }
@@ -96,6 +227,7 @@ let sizeOfBlocks = 75
 const saved = sessionStorage.getItem('TetrisData')
 const debug = false
 const backGroundGrid = true
+let currentGamestate = gameState.playing
 let finalSettings = {
     sizeOfBlock: 75,
     colorMode: false,
@@ -138,8 +270,9 @@ function setSettings(){
 setSettings()
 myCanvas.width = roundToSizeOfBlocks(myCanvas.width)
 myCanvas.height = roundToSizeOfBlocks(myCanvas.height)
+let turnMoveBlock = null
 const mapOfBlocks = generateMap(myCanvas.width,myCanvas.height,sizeOfBlocks,backGroundGrid)
-generateNewBlocks([1,4],'red',sizeOfBlocks)
+generateNewBlocks('red',sizeOfBlocks, defaultBlocksList, getRandomInt(0,defaultBlocksList.length-1), blockFormula)
 
 
 function addDefaultBlocks(){
@@ -170,6 +303,14 @@ function roundToSizeOfBlocks(number){
     return (Math.round(number/sizeOfBlocks))*sizeOfBlocks
 }
 
+function getRandomInt(min, max) {
+  min = Math.ceil(min)
+  max = Math.floor(max)
+  return Number(Math.floor(Math.random() * (max - min + 1)) + min)
+}
+
+
+
 function generateMap(width,height,sizeBlock, Grid){
     let returnmap = []
     width = roundToSizeOfBlocks(width)
@@ -188,9 +329,63 @@ function generateMap(width,height,sizeBlock, Grid){
     return returnmap
 }
 
-function generateNewBlocks(spawnpos,color,size){
-    blocksAll.push(new BlockRetro({row:spawnpos[0],collum:spawnpos[1],color:color,current:true,size:size}))
+function generateNewBlocks(color,size, blockTypeList, blockTypeNumber, blockerFormula){
+    let posinlist = 0
+    blocksAll.push(new blocksShape())
+    for (let rows=0;rows<blockerFormula[0];rows+=1){
+        for (let collums=0;collums<blockerFormula[1];collums+=1){
+            //console.log(`Sloupec: ${collums} a radek ${rows}`)
+            if (blockTypeList[blockTypeNumber][posinlist++]){
+                blocksAll[blocksAll.length-1].blocks.push(new BlockRetro({row:rows,collum:collums+5,color:color,current:true,size:size, blockShapeOwnerindex:blocksAll.length-1}))
+            }
+        }
+    }
 }
+
+function moveRows(impactRow,map,blocklist){
+    let i = 0
+    for (let row of map){
+        if (i++<impactRow){
+            let colI = 0
+            for (let collum of row){
+                if (collum===blockMode.ocuppiedByFallen){
+                    map[i-1][colI] = blockMode.ocuppiedByCurrent
+                }
+                colI += 1
+            }
+        }
+    }
+    for (let block of blocklist){
+        block.fallAgain(map)
+    }
+}
+
+function checkRows(map,checking,backgroundcolor,sizebyblock){
+    let rowindex = 0
+    for (let row of map){
+        let numberofChecked = 0
+        for (let collum of row){
+            if (collum===checking){
+                numberofChecked += 1
+            }
+        }
+        if (numberofChecked>=row.length-1){
+            deleteRow(row,map,sizebyblock,backgroundcolor,rowindex)
+        }
+        rowindex += 1
+    }
+}
+
+function deleteRow(row,list,sizebyblock,backgroundcolor,rower){
+    for (let i=0;i<row.length;i+=1){
+        list[rower][i] = blockMode.unocuppied
+        fillBlock(i*sizebyblock,rower*sizebyblock,sizebyblock,backgroundcolor,backGroundGrid)
+    }
+    moveRows(rower,list,fallenblocks)
+}
+
+
+
 
 function fillBlock(x,y,size,color,surounds){
     drawer.fillStyle = color
@@ -202,10 +397,24 @@ function fillBlock(x,y,size,color,surounds){
 }
 
 function mainUpdatetor(map,backgroundcolor,size,list){
+    drawer.clearRect(0, 0, myCanvas.width, myCanvas.height)
+    generateMap(myCanvas.width,myCanvas.height,sizeOfBlocks,backGroundGrid)
+    checkRows(mapOfBlocks,blockMode.ocuppiedByFallen,backgroundcolor,size)
     for (let oneblock of list){
         if (debug){console.log(`Id bloku s chybou: ${oneblock.id}, chyba v radku ${oneblock.row} a na sloupci ${oneblock.collum}`)}
+        oneblock.updateDraw(size)
         if (oneblock.current){
-            oneblock.updateblockdown(map, backgroundcolor,size,list)
+            oneblock.updateblockdown(map, backgroundcolor, size)
+        }
+    }
+    for (let blocksShapesFalling of blocksAll){
+        //console.log(`update padajicich: ${blocksAll}`)
+        if (blocksShapesFalling.moving){
+            blocksShapesFalling.updateMyBlocks(map,backgroundcolor,size,defaultBlocksList,blockFormula)
+            if (turnMoveBlock){
+                blocksAll[0].pushToSideMyBlocks(turnMoveBlock, mapOfBlocks)
+                turnMoveBlock = null
+        }
         }
     }
     mainloopupdates = regularUpdates.updated
@@ -215,9 +424,9 @@ function mainUpdatetor(map,backgroundcolor,size,list){
 
 
 function main() {
-    if (mainloopupdates === regularUpdates.updated){
+    if (mainloopupdates === regularUpdates.updated && currentGamestate === gameState.playing){
         mainloopupdates = regularUpdates.waitting
-        setTimeout(() => mainUpdatetor(mapOfBlocks,'white',sizeOfBlocks,blocksAll), 50)
+        setTimeout(() => mainUpdatetor(mapOfBlocks,'white',sizeOfBlocks,fallenblocks), 150)
     }
     requestAnimationFrame(main)
 }
@@ -225,18 +434,11 @@ function main() {
 
 window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') {
-        for (let fallingBlock of blocksAll){
-            if (fallingBlock.current){
-                fallingBlock.pushblockinrow(blockDirection.right,mapOfBlocks,'white',sizeOfBlocks)
-            }
-        }
+        turnMoveBlock = blockDirection.right
     }
     if (event.key === 'ArrowLeft') {
-        for (let fallingBlock of blocksAll){
-            if (fallingBlock.current){
-                fallingBlock.pushblockinrow(blockDirection.left,mapOfBlocks,'white',sizeOfBlocks)
-            }
-        }
+        console.log(`delka: ${blocksAll.length}`)
+        turnMoveBlock = blockDirection.left
     }
 });
 

@@ -26,7 +26,8 @@ const regularUpdates = {
 const stateOfBlock = {
     collision: 1,
     falling: 2,
-    currentUnder: 3
+    currentUnder: 3,
+    currentSide: 4
 }
 
 const stateOfList = {
@@ -44,21 +45,26 @@ class blocksShape{
     constructor(){
         this.blocks = []
         this.moving = true
+        this.abscentres = []
     }
     stabilizeMyBlocks(map, sizeByBlocks, blockTypeList, myBlockerFormula){
         let canGenNew = true
         this.moving = false
         for (let fallingBlock of this.blocks){
-            if (this.row===1){
+            if (fallingBlock.row===1){
                 canGenNew = false
             } 
             fallingBlock.stabilize(map)
         }
         if (canGenNew && currentGamestate === gameState.playing){
-                generateNewBlocks('red',sizeByBlocks, blockTypeList, getRandomInt(0,blockTypeList.length-1), myBlockerFormula)
+            console.log('generuju nove')
+            generateNewBlocks('red',sizeByBlocks, blockTypeList, getRandomInt(0,blockTypeList.length-1), myBlockerFormula)
             }
         if (!canGenNew){
             currentGamestate = gameState.lost
+            drawer.fillStyle = 'blue'
+            drawer.fillRect(0, 0, 100, 500)
+            //here lose screen
         }
         blocksAll.splice(blocksAll.indexOf(this),1)
     }
@@ -112,10 +118,9 @@ class blocksShape{
     }
     pushToSideMyBlocks(leftOrRight,map, backgroundcolor, sizebyblock){
         let yesnumber = 0
-        console.log('jedu do strany')
         for (let fallingBlock of this.blocks){
             if (fallingBlock.movable){
-                if (fallingBlock.pushblockinrowcheck(leftOrRight,map,backgroundcolor,sizebyblock)){
+                if (fallingBlock.pushblockinrowcheck(leftOrRight,map) == stateOfBlock.falling || fallingBlock.pushblockinrowcheck(leftOrRight,map) === stateOfBlock.currentSide){
                     yesnumber += 1
                 }
             }
@@ -123,15 +128,15 @@ class blocksShape{
         if (yesnumber>=this.blocks.length){
             for (let fallingBlock of this.blocks){
                 if (fallingBlock.movable){
-                    fallingBlock.pushblockinrow(leftOrRight,map,backgroundcolor,sizebyblock)
-                }
+                fallingBlock.pushblockinrow(leftOrRight,map,backgroundcolor,sizebyblock)
+            }
             }
         }
     }
     rotateMyBlocks(){
+
     }
 }
-
 
 class BlockRetro{
     constructor({row,collum,color,current,size, blockShapeOwnerindex}){
@@ -146,6 +151,7 @@ class BlockRetro{
         this.insiderList = stateOfList.allBlocks
         this.moved = false
         this.waiting = false
+        this.waitingSide = false
     }
     updateDraw(sizebyblock){
         fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
@@ -153,10 +159,10 @@ class BlockRetro{
     updateblockdown(map, backgroundcolor, sizebyblock){
         if (map.length>(this.row+2)){
             map[this.row][this.collum] = blockMode.unocuppied
-            fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
             this.row += 1
             map[this.row][this.collum] = blockMode.ocuppiedByCurrent
-            fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
+            allAnimations.push(new animationOfMyBlocks({oldX: this.collum*sizebyblock, oldY:(this.row-1)*sizebyblock, newX: this.collum*sizebyblock, newY:this.row*sizebyblock, color: this.color,
+                                                        sizeByThisBlock: this.size, surounds: true, aniID:this.id}))
             this.moved = true
         }
     }
@@ -180,22 +186,25 @@ class BlockRetro{
         if (map.length>=this.row){
             if (map[this.row].length>this.collum+(leftOrRight*2)){
                 map[this.row][this.collum] = blockMode.unocuppied
-                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,backgroundcolor,backGroundGrid)
                 this.collum += leftOrRight
                 map[this.row][this.collum] = blockMode.ocuppiedByCurrent
-                fillBlock(this.collum*sizebyblock,this.row*sizebyblock,this.size,this.color,true)
+                console.log(`menime x na animaci: ${returnAnimationID(allAnimations,this.id)} s leva prava: ${leftOrRight} a velikosti: ${sizebyblock}`)
+                allAnimations[returnAnimationID(allAnimations,this.id)].changeAniX(leftOrRight*sizebyblock)
             }
         }
     }
     pushblockinrowcheck(leftOrRight, map){
         if (map.length>=this.row){
             if (map[this.row].length>this.collum+(leftOrRight*2)){
-                if (map[this.row][this.collum+leftOrRight] === blockMode.unocuppied || map[this.row][this.collum+leftOrRight] === blockMode.ocuppiedByCurrent){
-                    return true
+                if (map[this.row][this.collum+leftOrRight] === blockMode.unocuppied){
+                    return stateOfBlock.falling
+                }
+                if (map[this.row][this.collum+leftOrRight] === blockMode.ocuppiedByCurrent){
+                    return stateOfBlock.currentSide
                 }
             }
         }
-        return false
+        return stateOfBlock.collision
     }
     stabilize(map){
         map[this.row][this.collum] = blockMode.ocuppiedByFallen
@@ -214,6 +223,32 @@ class BlockRetro{
     }
 }
 
+class animationOfMyBlocks{
+    constructor({oldX,oldY,newX,newY,color,sizeByThisBlock,surounds, aniID}){
+        this.x = oldX
+        this.y = oldY
+        this.newX = newX
+        this.newY = newY
+        this.disX = oldX-newX
+        this.disY = oldY-newY
+        this.color = color
+        this.size = sizeByThisBlock
+        this.surounds = surounds
+        this.aniID = aniID
+        this.objAn = 0
+    }
+    animateOneFrame(cycles){
+        this.y -= this.disY/cycles
+        fillBlock(this.x,this.y,this.size,this.color,this.surounds)
+        if (this.y >= this.newY){
+            mainloopupdates = regularUpdates.updated
+        }
+    }
+    changeAniX(changeX){
+        console.log(`puvodni x: ${this.x} zmeneno o: ${changeX}`)
+        this.x += changeX
+    }
+}
 
 let ids = 0
 let defaultBlocksList = []
@@ -223,6 +258,7 @@ let rotation_angle = 90
 let difficulty = 3
 let defaultOrMadeBlocks = true
 let mainloopupdates = regularUpdates.updated
+let mainloopAnimations = regularUpdates.updated
 let sizeOfBlocks = 75
 const saved = sessionStorage.getItem('TetrisData')
 const debug = false
@@ -268,6 +304,7 @@ function setSettings(){
 
 
 setSettings()
+let allAnimations = []
 myCanvas.width = roundToSizeOfBlocks(myCanvas.width)
 myCanvas.height = roundToSizeOfBlocks(myCanvas.height)
 let turnMoveBlock = null
@@ -309,6 +346,14 @@ function getRandomInt(min, max) {
   return Number(Math.floor(Math.random() * (max - min + 1)) + min)
 }
 
+function returnAnimationID(mylist,myid){
+    for (let index = 0;index<mylist.length;index+=1){
+        if (mylist[index].aniID===myid){
+            return index
+        }
+    }
+    return -1
+}
 
 
 function generateMap(width,height,sizeBlock, Grid){
@@ -337,6 +382,7 @@ function generateNewBlocks(color,size, blockTypeList, blockTypeNumber, blockerFo
             //console.log(`Sloupec: ${collums} a radek ${rows}`)
             if (blockTypeList[blockTypeNumber][posinlist++]){
                 blocksAll[blocksAll.length-1].blocks.push(new BlockRetro({row:rows,collum:collums+5,color:color,current:true,size:size, blockShapeOwnerindex:blocksAll.length-1}))
+                mainloopupdates = regularUpdates.updated
             }
         }
     }
@@ -384,9 +430,6 @@ function deleteRow(row,list,sizebyblock,backgroundcolor,rower){
     moveRows(rower,list,fallenblocks)
 }
 
-
-
-
 function fillBlock(x,y,size,color,surounds){
     drawer.fillStyle = color
     drawer.fillRect(x, y, size, size)
@@ -396,13 +439,29 @@ function fillBlock(x,y,size,color,surounds){
     }
 }
 
-function mainUpdatetor(map,backgroundcolor,size,list){
+function animations(size){
     drawer.clearRect(0, 0, myCanvas.width, myCanvas.height)
-    generateMap(myCanvas.width,myCanvas.height,sizeOfBlocks,backGroundGrid)
+    //generateMap(myCanvas.width,myCanvas.height,sizeOfBlocks,backGroundGrid)
+    for (let animation of allAnimations){
+        animation.animateOneFrame(20)
+    }
+    for (let oneblock of fallenblocks){
+        if (!(oneblock.current)){
+            oneblock.updateDraw(size)
+        }
+    }
+    mainloopAnimations = regularUpdates.updated
+}
+
+
+function mainUpdatetor(map,backgroundcolor,size,list){
     checkRows(mapOfBlocks,blockMode.ocuppiedByFallen,backgroundcolor,size)
+    allAnimations = []
     for (let oneblock of list){
         if (debug){console.log(`Id bloku s chybou: ${oneblock.id}, chyba v radku ${oneblock.row} a na sloupci ${oneblock.collum}`)}
-        oneblock.updateDraw(size)
+        if (!(oneblock.current)){
+            oneblock.updateDraw(size)
+        }
         if (oneblock.current){
             oneblock.updateblockdown(map, backgroundcolor, size)
         }
@@ -411,13 +470,8 @@ function mainUpdatetor(map,backgroundcolor,size,list){
         //console.log(`update padajicich: ${blocksAll}`)
         if (blocksShapesFalling.moving){
             blocksShapesFalling.updateMyBlocks(map,backgroundcolor,size,defaultBlocksList,blockFormula)
-            if (turnMoveBlock){
-                blocksAll[0].pushToSideMyBlocks(turnMoveBlock, mapOfBlocks)
-                turnMoveBlock = null
-        }
         }
     }
-    mainloopupdates = regularUpdates.updated
 }
 
 
@@ -426,7 +480,11 @@ function mainUpdatetor(map,backgroundcolor,size,list){
 function main() {
     if (mainloopupdates === regularUpdates.updated && currentGamestate === gameState.playing){
         mainloopupdates = regularUpdates.waitting
-        setTimeout(() => mainUpdatetor(mapOfBlocks,'white',sizeOfBlocks,fallenblocks), 150)
+        mainUpdatetor(mapOfBlocks,'white',sizeOfBlocks,fallenblocks)
+    }
+    if (mainloopAnimations === regularUpdates.updated){
+        mainloopAnimations = regularUpdates.waitting
+        animations(sizeOfBlocks)
     }
     requestAnimationFrame(main)
 }
@@ -434,11 +492,10 @@ function main() {
 
 window.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowRight') {
-        turnMoveBlock = blockDirection.right
+        blocksAll[0].pushToSideMyBlocks(blockDirection.right, mapOfBlocks,'white',sizeOfBlocks)
     }
     if (event.key === 'ArrowLeft') {
-        console.log(`delka: ${blocksAll.length}`)
-        turnMoveBlock = blockDirection.left
+        blocksAll[0].pushToSideMyBlocks(blockDirection.left, mapOfBlocks,'white',sizeOfBlocks)
     }
 });
 
